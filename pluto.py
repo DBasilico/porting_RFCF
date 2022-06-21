@@ -1,2 +1,2 @@
-def pluto:
+def pluto():
     print('prova PLUTO')
