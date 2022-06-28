@@ -415,18 +415,20 @@ class run_par_cashflow(dict):
         return self[name]
 
 
-def recode(col_name, map_dict):
+def decodifica_colonna(df, col_name, map_dict, na_replace=None, mantieni_mancanti=True, default_mancanti=None):
     if not isinstance(col_name, f.Column):
         col_name = f.col(col_name)
-    mapping_expr = f.create_map([f.lit(x) for x in chain(*map_dict.items())])
-    return f.when(~f.isnull(mapping_expr.getItem(col_name)), mapping_expr.getItem(col_name)).otherwise(col_name)
-
-
-def decodifica_colonna(df, col_name, map_dict, na_replace=None):
     if na_replace is not None:
         df = df.fillna(na_replace, subset=[col_name])
-    df = df.withColumn(col_name, recode(col_name, map_dict))
-    return df
+  
+    mapping_expr = f.create_map([f.lit(x) for x in chain(*map_dict.items())])
+  
+    if mantieni_mancanti:
+        expr = f.when(~f.isnull(mapping_expr.getItem(col_name)), mapping_expr.getItem(col_name)).otherwise(col_name)
+    else:
+        expr = f.when(~f.isnull(mapping_expr.getItem(col_name)), mapping_expr.getItem(col_name)).otherwise(f.lit(default_mancanti))
+  
+    return df.withColumn(col_name._jc.toString(), expr)
 
   
 class monitor_tempistiche:
