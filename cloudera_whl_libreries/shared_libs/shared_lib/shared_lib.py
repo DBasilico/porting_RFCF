@@ -473,7 +473,7 @@ class monitor_tempistiche:
     spark.sql(f'TRUNCATE TABLE {self.output_table_name}')
     
 
-def rinomina_campi(df, tabella):
+def rinomina_campi(spark, df, tabella):
 
     # tabella di mapping
     tabella_rinomina_campi = 'data.tcr_rinomina_ndp_to_dg'
