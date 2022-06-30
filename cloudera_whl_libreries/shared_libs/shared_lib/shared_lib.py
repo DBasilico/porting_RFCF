@@ -487,3 +487,38 @@ def rinomina_campi(spark, df, tabella):
         df = df.withColumnRenamed(nomeNDP, nomeTCR)
 
     return df
+ 
+ 
+def codifica_campi(spark, flusso, df):
+    df_codifica_campi = spark.table('data.tcr_flusso_campi_codifica').filter(f.col('Flusso')==flusso)
+    codifica_campi = df_codifica_campi.collect()
+    if len(codifica_campi) == 0:
+        return df
+    mantieni_mancanti = codifica_campi[0].mantieni_mancanti
+    default_mancanti = codifica_campi[0].default_mancanti
+    
+    df_infoDecodifica = spark.table('data.tcr_decodifica_valori')
+
+    df_decodifiche = df_codifica_campi.drop('mantieni_mancanti','default_mancanti')\
+                 .join(df_infoDecodifica, 
+                       on=[df_codifica_campi.Codifica == df_infoDecodifica.Nome_Decodifica], 
+                       how='left')
+    colonneDaDecodificare = [x.Campo for x in df_decodifiche.select('Campo').distinct().collect()]
+
+    for colonnaDaDecodificare in colonneDaDecodificare:
+        map_dict = df_decodifiche.filter(f.col('Campo')==colonnaDaDecodificare).toPandas()
+        if map_dict.ID.isna().any(): # <------ vuoi fare una righa all'interno della tabella che indica come mappare i nulli?
+            na_replace = map_dict[map_dict.ID.isna()]
+            if na_replace.shape[0] > 1:
+                raise Exception('Esiste un valore None con doppia mappatura')
+            else:
+                na_replace = na_replace.Valore_TCR.values[0]
+            map_dict.dropna(subset=['ID'],inplace=True)
+        else:
+            na_replace=None
+    map_dict = map_dict.set_index('ID')['Valore_TCR'].to_dict()
+    df = decodifica_colonna(df, col_name=colonnaDaDecodificare, map_dict=map_dict,
+              na_replace=na_replace,
+              mantieni_mancanti=mantieni_mancanti,
+              default_mancanti=default_mancanti)
+    return df
